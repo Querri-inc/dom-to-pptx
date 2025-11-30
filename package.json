@@ -1,0 +1,53 @@
+{
+  "name": "dom-to-pptx",
+  "version": "1.0.0",
+  "description": "A client-side library that converts any HTML element into a fully editable PowerPoint slide. **dom-to-pptx** transforms DOM structures into pixel-accurate `.pptx` content, preserving gradients, shadows, rounded images, and responsive layouts. It translates CSS Flexbox/Grid, linear-gradients, box-shadows, and typography into native PowerPoint shapes, enabling precise, design-faithful slide generation directly from the browser.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atharva9167j/dom-to-pptx.git"
+  },
+"keywords": [
+  "pptx",
+  "html-to-pptx",
+  "powerpoint",
+  "pptx-generator",
+  "slide-generator",
+  "presentation-generator",
+  "dom",
+  "dom-to-pptx",
+  "export",
+  "browser-export",
+  "client-side-pptx",
+  "html-to-powerpoint",
+  "convert-html",
+  "css-to-pptx",
+  "css-to-powerpoint",
+  "pptx-creator",
+  "presentation-tools",
+  "slides",
+  "slide-creation",
+  "web-to-pptx",
+  "web-to-powerpoint",
+  "frontend-pptx",
+  "html-rendering",
+  "layout-engine",
+  "gradient-support",
+  "flexbox",
+  "css-grid",
+  "typography"
+],
+  "author": "Atharva Dharmendra Jagtap <atharvaj321@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/atharva9167j/dom-to-pptx/issues"
+  },
+  "homepage": "https://github.com/atharva9167j/dom-to-pptx#readme",
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}
