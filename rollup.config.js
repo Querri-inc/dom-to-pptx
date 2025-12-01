@@ -9,12 +9,9 @@ export default {
     name: 'domToPptx',
     esModule: false,
     globals: {
-      'pptxgenjs': 'PptxGenJS'
-    }
+      pptxgenjs: 'PptxGenJS',
+    },
   },
-  plugins: [
-    resolve(),
-    commonjs()
-  ],
-  external: ['pptxgenjs']
+  plugins: [resolve(), commonjs()],
+  external: ['pptxgenjs'],
 };

@@ -1,5 +1,5 @@
 // src/index.js
-import PptxGenJS from "pptxgenjs";
+import PptxGenJS from 'pptxgenjs';
 import {
   parseColor,
   getTextStyle,
@@ -13,8 +13,8 @@ import {
   generateBlurredSVG,
   getBorderInfo,
   generateCompositeBorderSVG,
-} from "./utils.js";
-import { getProcessedImage } from "./image-processor.js";
+} from './utils.js';
+import { getProcessedImage } from './image-processor.js';
 
 const PPI = 96;
 const PX_TO_INCH = 1 / PPI;
@@ -26,15 +26,15 @@ const PX_TO_INCH = 1 / PPI;
  */
 export async function exportToPptx(target, options = {}) {
   const pptx = new PptxGenJS();
-  pptx.layout = "LAYOUT_16x9";
+  pptx.layout = 'LAYOUT_16x9';
 
   // Standardize input to an array, ensuring single or multiple elements are handled consistently
   const elements = Array.isArray(target) ? target : [target];
 
   for (const el of elements) {
-    const root = typeof el === "string" ? document.querySelector(el) : el;
+    const root = typeof el === 'string' ? document.querySelector(el) : el;
     if (!root) {
-      console.warn("Element not found, skipping slide:", el);
+      console.warn('Element not found, skipping slide:', el);
       continue;
     }
 
@@ -42,7 +42,7 @@ export async function exportToPptx(target, options = {}) {
     await processSlide(root, slide, pptx);
   }
 
-  const fileName = options.fileName || "export.pptx";
+  const fileName = options.fileName || 'export.pptx';
   pptx.writeFile({ fileName });
 }
 
@@ -59,10 +59,7 @@ async function processSlide(root, slide, pptx) {
 
   const contentWidthIn = rootRect.width * PX_TO_INCH;
   const contentHeightIn = rootRect.height * PX_TO_INCH;
-  const scale = Math.min(
-    PPTX_WIDTH_IN / contentWidthIn,
-    PPTX_HEIGHT_IN / contentHeightIn
-  );
+  const scale = Math.min(PPTX_WIDTH_IN / contentWidthIn, PPTX_HEIGHT_IN / contentHeightIn);
 
   const layoutConfig = {
     rootX: rootRect.x,
@@ -93,26 +90,22 @@ async function processSlide(root, slide, pptx) {
   });
 
   for (const item of renderQueue) {
-    if (item.type === "shape") slide.addShape(item.shapeType, item.options);
-    if (item.type === "image") slide.addImage(item.options);
-    if (item.type === "text") slide.addText(item.textParts, item.options);
+    if (item.type === 'shape') slide.addShape(item.shapeType, item.options);
+    if (item.type === 'image') slide.addImage(item.options);
+    if (item.type === 'text') slide.addText(item.textParts, item.options);
   }
 }
 
 async function createRenderItem(node, config, domOrder, pptx) {
   if (node.nodeType !== 1) return null;
   const style = window.getComputedStyle(node);
-  if (
-    style.display === "none" ||
-    style.visibility === "hidden" ||
-    style.opacity === "0"
-  )
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')
     return null;
 
   const rect = node.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return null;
 
-  const zIndex = style.zIndex !== "auto" ? parseInt(style.zIndex) : 0;
+  const zIndex = style.zIndex !== 'auto' ? parseInt(style.zIndex) : 0;
   const rotation = getRotation(style.transform);
   const elementOpacity = parseFloat(style.opacity);
 
@@ -123,25 +116,19 @@ async function createRenderItem(node, config, domOrder, pptx) {
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
 
-  let x =
-    config.offX +
-    (centerX - config.rootX) * PX_TO_INCH * config.scale -
-    unrotatedW / 2;
-  let y =
-    config.offY +
-    (centerY - config.rootY) * PX_TO_INCH * config.scale -
-    unrotatedH / 2;
+  let x = config.offX + (centerX - config.rootX) * PX_TO_INCH * config.scale - unrotatedW / 2;
+  let y = config.offY + (centerY - config.rootY) * PX_TO_INCH * config.scale - unrotatedH / 2;
   let w = unrotatedW;
   let h = unrotatedH;
 
   const items = [];
 
   // Image handling for SVG nodes directly
-  if (node.nodeName.toUpperCase() === "SVG") {
+  if (node.nodeName.toUpperCase() === 'SVG') {
     const pngData = await svgToPng(node);
     if (pngData)
       items.push({
-        type: "image",
+        type: 'image',
         zIndex,
         domOrder,
         options: { data: pngData, x, y, w, h, rotate: rotation },
@@ -149,22 +136,17 @@ async function createRenderItem(node, config, domOrder, pptx) {
     return { items, stopRecursion: true };
   }
   // Image handling for <img> tags, including rounded corners
-  if (node.tagName === "IMG") {
+  if (node.tagName === 'IMG') {
     let borderRadius = parseFloat(style.borderRadius) || 0;
     if (borderRadius === 0) {
       const parentStyle = window.getComputedStyle(node.parentElement);
-      if (parentStyle.overflow !== "visible")
+      if (parentStyle.overflow !== 'visible')
         borderRadius = parseFloat(parentStyle.borderRadius) || 0;
     }
-    const processed = await getProcessedImage(
-      node.src,
-      widthPx,
-      heightPx,
-      borderRadius
-    );
+    const processed = await getProcessedImage(node.src, widthPx, heightPx, borderRadius);
     if (processed)
       items.push({
-        type: "image",
+        type: 'image',
         zIndex,
         domOrder,
         options: { data: processed, x, y, w, h, rotate: rotation },
@@ -174,32 +156,28 @@ async function createRenderItem(node, config, domOrder, pptx) {
 
   const bgColorObj = parseColor(style.backgroundColor);
   const bgClip = style.webkitBackgroundClip || style.backgroundClip;
-  const isBgClipText = bgClip === "text";
+  const isBgClipText = bgClip === 'text';
   const hasGradient =
-    !isBgClipText &&
-    style.backgroundImage &&
-    style.backgroundImage.includes("linear-gradient");
+    !isBgClipText && style.backgroundImage && style.backgroundImage.includes('linear-gradient');
 
   const borderColorObj = parseColor(style.borderColor);
   const borderWidth = parseFloat(style.borderWidth);
   const hasBorder = borderWidth > 0 && borderColorObj.hex;
 
   const borderInfo = getBorderInfo(style, config.scale);
-  const hasUniformBorder = borderInfo.type === "uniform";
-  const hasCompositeBorder = borderInfo.type === "composite";
+  const hasUniformBorder = borderInfo.type === 'uniform';
+  const hasCompositeBorder = borderInfo.type === 'composite';
 
   const shadowStr = style.boxShadow;
-  const hasShadow = shadowStr && shadowStr !== "none";
+  const hasShadow = shadowStr && shadowStr !== 'none';
   const borderRadius = parseFloat(style.borderRadius) || 0;
   const softEdge = getSoftEdges(style.filter, config.scale);
 
   let isImageWrapper = false;
-  const imgChild = Array.from(node.children).find((c) => c.tagName === "IMG");
+  const imgChild = Array.from(node.children).find((c) => c.tagName === 'IMG');
   if (imgChild) {
-    const childW =
-      imgChild.offsetWidth || imgChild.getBoundingClientRect().width;
-    const childH =
-      imgChild.offsetHeight || imgChild.getBoundingClientRect().height;
+    const childW = imgChild.offsetWidth || imgChild.getBoundingClientRect().width;
+    const childH = imgChild.offsetHeight || imgChild.getBoundingClientRect().height;
     if (childW >= widthPx - 2 && childH >= heightPx - 2) isImageWrapper = true;
   }
 
@@ -208,17 +186,17 @@ async function createRenderItem(node, config, domOrder, pptx) {
 
   if (isText) {
     const textParts = [];
-    const isList = style.display === "list-item";
+    const isList = style.display === 'list-item';
     if (isList) {
       const fontSizePt = parseFloat(style.fontSize) * 0.75 * config.scale;
-      const bulletShift =
-        (parseFloat(style.fontSize) || 16) * PX_TO_INCH * config.scale * 1.5;
+      const bulletShift = (parseFloat(style.fontSize) || 16) * PX_TO_INCH * config.scale * 1.5;
       x -= bulletShift;
       w += bulletShift;
       textParts.push({
-        text: "• ",
-        options: { // Default bullet point styling
-          color: parseColor(style.color).hex || "000000",
+        text: '• ',
+        options: {
+          // Default bullet point styling
+          color: parseColor(style.color).hex || '000000',
           fontSize: fontSizePt,
         },
       });
@@ -227,17 +205,14 @@ async function createRenderItem(node, config, domOrder, pptx) {
     node.childNodes.forEach((child, index) => {
       // Process text content, sanitizing whitespace and applying text transformations
       let textVal = child.nodeType === 3 ? child.nodeValue : child.textContent;
-      let nodeStyle =
-        child.nodeType === 1 ? window.getComputedStyle(child) : style;
-      textVal = textVal.replace(/[\n\r\t]+/g, " ").replace(/\s{2,}/g, " ");
+      let nodeStyle = child.nodeType === 1 ? window.getComputedStyle(child) : style;
+      textVal = textVal.replace(/[\n\r\t]+/g, ' ').replace(/\s{2,}/g, ' ');
       if (index === 0 && !isList) textVal = textVal.trimStart();
       else if (index === 0) textVal = textVal.trimStart();
       if (index === node.childNodes.length - 1) textVal = textVal.trimEnd();
-      if (nodeStyle.textTransform === "uppercase")
-        textVal = textVal.toUpperCase();
-      if (nodeStyle.textTransform === "lowercase")
-        textVal = textVal.toLowerCase();
-      
+      if (nodeStyle.textTransform === 'uppercase') textVal = textVal.toUpperCase();
+      if (nodeStyle.textTransform === 'lowercase') textVal = textVal.toLowerCase();
+
       if (textVal.length > 0) {
         textParts.push({
           text: textVal,
@@ -247,20 +222,19 @@ async function createRenderItem(node, config, domOrder, pptx) {
     });
 
     if (textParts.length > 0) {
-      let align = style.textAlign || "left";
-      if (align === "start") align = "left";
-      if (align === "end") align = "right";
-      let valign = "top";
-      if (style.alignItems === "center") valign = "middle";
-      if (style.justifyContent === "center" && style.display.includes("flex"))
-        align = "center";
+      let align = style.textAlign || 'left';
+      if (align === 'start') align = 'left';
+      if (align === 'end') align = 'right';
+      let valign = 'top';
+      if (style.alignItems === 'center') valign = 'middle';
+      if (style.justifyContent === 'center' && style.display.includes('flex')) align = 'center';
 
       const pt = parseFloat(style.paddingTop) || 0;
       const pb = parseFloat(style.paddingBottom) || 0;
-      if (Math.abs(pt - pb) < 2 && bgColorObj.hex) valign = "middle";
+      if (Math.abs(pt - pb) < 2 && bgColorObj.hex) valign = 'middle';
 
       let padding = getPadding(style, config.scale);
-      if (align === "center" && valign === "middle") padding = [0, 0, 0, 0];
+      if (align === 'center' && valign === 'middle') padding = [0, 0, 0, 0];
 
       textPayload = { text: textParts, align, valign, inset: padding };
     }
@@ -270,13 +244,7 @@ async function createRenderItem(node, config, domOrder, pptx) {
     let bgData = null;
     let padIn = 0;
     if (softEdge) {
-      const svgInfo = generateBlurredSVG(
-        widthPx,
-        heightPx,
-        bgColorObj.hex,
-        borderRadius,
-        softEdge
-      );
+      const svgInfo = generateBlurredSVG(widthPx, heightPx, bgColorObj.hex, borderRadius, softEdge);
       bgData = svgInfo.data;
       padIn = svgInfo.padding * PX_TO_INCH * config.scale;
     } else {
@@ -291,7 +259,7 @@ async function createRenderItem(node, config, domOrder, pptx) {
 
     if (bgData) {
       items.push({
-        type: "image",
+        type: 'image',
         zIndex,
         domOrder,
         options: {
@@ -307,7 +275,7 @@ async function createRenderItem(node, config, domOrder, pptx) {
 
     if (textPayload) {
       items.push({
-        type: "text",
+        type: 'text',
         zIndex: zIndex + 1,
         domOrder,
         textParts: textPayload.text,
@@ -359,7 +327,7 @@ async function createRenderItem(node, config, domOrder, pptx) {
       fill:
         bgColorObj.hex && !isImageWrapper
           ? { color: bgColorObj.hex, transparency: transparency }
-          : { type: "none" },
+          : { type: 'none' },
       // Only apply line if the border is uniform
       line: hasUniformBorder ? borderInfo.options : null,
     };
@@ -372,17 +340,13 @@ async function createRenderItem(node, config, domOrder, pptx) {
     const widthPx = node.offsetWidth || rect.width;
     const heightPx = node.offsetHeight || rect.height;
     const isCircle =
-      borderRadius >= Math.min(widthPx, heightPx) / 2 - 1 &&
-      Math.abs(widthPx - heightPx) < 2;
+      borderRadius >= Math.min(widthPx, heightPx) / 2 - 1 && Math.abs(widthPx - heightPx) < 2;
 
     let shapeType = pptx.ShapeType.rect;
     if (isCircle) shapeType = pptx.ShapeType.ellipse;
     else if (borderRadius > 0) {
       shapeType = pptx.ShapeType.roundRect;
-      shapeOpts.rectRadius = Math.min(
-        1,
-        borderRadius / (Math.min(widthPx, heightPx) / 2)
-      );
+      shapeOpts.rectRadius = Math.min(1, borderRadius / (Math.min(widthPx, heightPx) / 2));
     }
 
     // MERGE TEXT INTO SHAPE (if text exists)
@@ -398,16 +362,16 @@ async function createRenderItem(node, config, domOrder, pptx) {
         autoFit: false,
       };
       items.push({
-        type: "text",
+        type: 'text',
         zIndex,
         domOrder,
         textParts: textPayload.text,
         options: textOptions,
       });
-    // If no text, just draw the shape
+      // If no text, just draw the shape
     } else {
       items.push({
-        type: "shape",
+        type: 'shape',
         zIndex,
         domOrder,
         shapeType,
@@ -426,9 +390,8 @@ async function createRenderItem(node, config, domOrder, pptx) {
       );
 
       if (borderSvgData) {
-        
         items.push({
-          type: "image",
+          type: 'image',
           zIndex: zIndex + 1,
           domOrder,
           options: {
@@ -450,26 +413,17 @@ async function createRenderItem(node, config, domOrder, pptx) {
 /**
  * Helper function to create individual border shapes
  */
-function createCompositeBorderItems(
-  sides,
-  x,
-  y,
-  w,
-  h,
-  scale,
-  zIndex,
-  domOrder
-) {
+function createCompositeBorderItems(sides, x, y, w, h, scale, zIndex, domOrder) {
   const items = [];
   const pxToInch = 1 / 96;
 
   // TOP BORDER
   if (sides.top.width > 0) {
     items.push({
-      type: "shape",
+      type: 'shape',
       zIndex: zIndex + 1,
       domOrder,
-      shapeType: "rect",
+      shapeType: 'rect',
       options: {
         x: x,
         y: y,
@@ -482,10 +436,10 @@ function createCompositeBorderItems(
   // RIGHT BORDER
   if (sides.right.width > 0) {
     items.push({
-      type: "shape",
+      type: 'shape',
       zIndex: zIndex + 1,
       domOrder,
-      shapeType: "rect",
+      shapeType: 'rect',
       options: {
         x: x + w - sides.right.width * pxToInch * scale,
         y: y,
@@ -498,10 +452,10 @@ function createCompositeBorderItems(
   // BOTTOM BORDER
   if (sides.bottom.width > 0) {
     items.push({
-      type: "shape",
+      type: 'shape',
       zIndex: zIndex + 1,
       domOrder,
-      shapeType: "rect",
+      shapeType: 'rect',
       options: {
         x: x,
         y: y + h - sides.bottom.width * pxToInch * scale,
@@ -514,10 +468,10 @@ function createCompositeBorderItems(
   // LEFT BORDER
   if (sides.left.width > 0) {
     items.push({
-      type: "shape",
+      type: 'shape',
       zIndex: zIndex + 1,
       domOrder,
-      shapeType: "rect",
+      shapeType: 'rect',
       options: {
         x: x,
         y: y,

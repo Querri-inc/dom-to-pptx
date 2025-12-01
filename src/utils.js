@@ -2,24 +2,24 @@
 
 // Helper to save gradient text
 export function getGradientFallbackColor(bgImage) {
-    if (!bgImage) return null;
-    // Extract first hex or rgb color
-    // linear-gradient(to right, #4f46e5, ...) -> #4f46e5
-    const hexMatch = bgImage.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
-    if (hexMatch) return hexMatch[0];
-    
-    const rgbMatch = bgImage.match(/rgba?\(.*?\)/);
-    if (rgbMatch) return rgbMatch[0];
-    
-    return null;
+  if (!bgImage) return null;
+  // Extract first hex or rgb color
+  // linear-gradient(to right, #4f46e5, ...) -> #4f46e5
+  const hexMatch = bgImage.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
+  if (hexMatch) return hexMatch[0];
+
+  const rgbMatch = bgImage.match(/rgba?\(.*?\)/);
+  if (rgbMatch) return rgbMatch[0];
+
+  return null;
 }
 
 function mapDashType(style) {
-    if (style === 'dashed') return 'dash';
-    if (style === 'dotted') return 'dot';
-    // PPTX also supports 'lgDash', 'dashDot', 'lgDashDot', 'lgDashDotDot'
-    // but we'll stick to basics for now.
-    return 'solid';
+  if (style === 'dashed') return 'dash';
+  if (style === 'dotted') return 'dot';
+  // PPTX also supports 'lgDash', 'dashDot', 'lgDashDot', 'lgDashDotDot'
+  // but we'll stick to basics for now.
+  return 'solid';
 }
 
 /**
@@ -27,90 +27,93 @@ function mapDashType(style) {
  * @returns {{type: 'uniform' | 'composite' | 'none', ...}}
  */
 export function getBorderInfo(style, scale) {
-    const top = {
-        width: parseFloat(style.borderTopWidth) || 0,
-        style: style.borderTopStyle,
-        color: parseColor(style.borderTopColor).hex,
-    };
-    const right = {
-        width: parseFloat(style.borderRightWidth) || 0,
-        style: style.borderRightStyle,
-        color: parseColor(style.borderRightColor).hex,
-    };
-    const bottom = {
-        width: parseFloat(style.borderBottomWidth) || 0,
-        style: style.borderBottomStyle,
-        color: parseColor(style.borderBottomColor).hex,
-    };
-    const left = {
-        width: parseFloat(style.borderLeftWidth) || 0,
-        style: style.borderLeftStyle,
-        color: parseColor(style.borderLeftColor).hex,
-    };
+  const top = {
+    width: parseFloat(style.borderTopWidth) || 0,
+    style: style.borderTopStyle,
+    color: parseColor(style.borderTopColor).hex,
+  };
+  const right = {
+    width: parseFloat(style.borderRightWidth) || 0,
+    style: style.borderRightStyle,
+    color: parseColor(style.borderRightColor).hex,
+  };
+  const bottom = {
+    width: parseFloat(style.borderBottomWidth) || 0,
+    style: style.borderBottomStyle,
+    color: parseColor(style.borderBottomColor).hex,
+  };
+  const left = {
+    width: parseFloat(style.borderLeftWidth) || 0,
+    style: style.borderLeftStyle,
+    color: parseColor(style.borderLeftColor).hex,
+  };
 
-    const hasAnyBorder = top.width > 0 || right.width > 0 || bottom.width > 0 || left.width > 0;
-    if (!hasAnyBorder) return { type: 'none' };
+  const hasAnyBorder = top.width > 0 || right.width > 0 || bottom.width > 0 || left.width > 0;
+  if (!hasAnyBorder) return { type: 'none' };
 
-    // Check if all sides are uniform
-    const isUniform = 
-        top.width === right.width &&
-        top.width === bottom.width &&
-        top.width === left.width &&
-        top.style === right.style &&
-        top.style === bottom.style &&
-        top.style === left.style &&
-        top.color === right.color &&
-        top.color === bottom.color &&
-        top.color === left.color;
+  // Check if all sides are uniform
+  const isUniform =
+    top.width === right.width &&
+    top.width === bottom.width &&
+    top.width === left.width &&
+    top.style === right.style &&
+    top.style === bottom.style &&
+    top.style === left.style &&
+    top.color === right.color &&
+    top.color === bottom.color &&
+    top.color === left.color;
 
-    if (isUniform) {
-        return {
-            type: 'uniform',
-            options: {
-                width: top.width * 0.75 * scale, // Convert to points and scale
-                color: top.color,
-                dashType: mapDashType(top.style),
-            }
-        };
-    } else {
-        // Borders are different, must render as separate shapes
-        return {
-            type: 'composite',
-            sides: {
-                top, right, bottom, left
-            }
-        };
-    }
+  if (isUniform) {
+    return {
+      type: 'uniform',
+      options: {
+        width: top.width * 0.75 * scale, // Convert to points and scale
+        color: top.color,
+        dashType: mapDashType(top.style),
+      },
+    };
+  } else {
+    // Borders are different, must render as separate shapes
+    return {
+      type: 'composite',
+      sides: {
+        top,
+        right,
+        bottom,
+        left,
+      },
+    };
+  }
 }
 
 /**
  * Generates an SVG image for composite borders that respects border-radius.
  */
 export function generateCompositeBorderSVG(w, h, radius, sides) {
-    radius = radius/2; // Adjust for SVG rendering
-    
-    const clipId = 'clip_' + Math.random().toString(36).substr(2, 9);
+  radius = radius / 2; // Adjust for SVG rendering
 
-    let borderRects = '';
+  const clipId = 'clip_' + Math.random().toString(36).substr(2, 9);
 
-    // TOP
-    if (sides.top.width > 0 && sides.top.color) {
-        borderRects += `<rect x="0" y="0" width="${w}" height="${sides.top.width}" fill="#${sides.top.color}" />`;
-    }
-    // RIGHT
-    if (sides.right.width > 0 && sides.right.color) {
-        borderRects += `<rect x="${w - sides.right.width}" y="0" width="${sides.right.width}" height="${h}" fill="#${sides.right.color}" />`;
-    }
-    // BOTTOM
-    if (sides.bottom.width > 0 && sides.bottom.color) {
-        borderRects += `<rect x="0" y="${h - sides.bottom.width}" width="${w}" height="${sides.bottom.width}" fill="#${sides.bottom.color}" />`;
-    }
-    // LEFT
-    if (sides.left.width > 0 && sides.left.color) {
-        borderRects += `<rect x="0" y="0" width="${sides.left.width}" height="${h}" fill="#${sides.left.color}" />`;
-    }
+  let borderRects = '';
 
-    const svg = `
+  // TOP
+  if (sides.top.width > 0 && sides.top.color) {
+    borderRects += `<rect x="0" y="0" width="${w}" height="${sides.top.width}" fill="#${sides.top.color}" />`;
+  }
+  // RIGHT
+  if (sides.right.width > 0 && sides.right.color) {
+    borderRects += `<rect x="${w - sides.right.width}" y="0" width="${sides.right.width}" height="${h}" fill="#${sides.right.color}" />`;
+  }
+  // BOTTOM
+  if (sides.bottom.width > 0 && sides.bottom.color) {
+    borderRects += `<rect x="0" y="${h - sides.bottom.width}" width="${w}" height="${sides.bottom.width}" fill="#${sides.bottom.color}" />`;
+  }
+  // LEFT
+  if (sides.left.width > 0 && sides.left.color) {
+    borderRects += `<rect x="0" y="0" width="${sides.left.width}" height="${h}" fill="#${sides.left.color}" />`;
+  }
+
+  const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
         <defs>
             <clipPath id="${clipId}">
@@ -122,7 +125,7 @@ export function generateCompositeBorderSVG(w, h, radius, sides) {
         </g>
     </svg>`;
 
-    return 'data:image/svg+xml;base64,' + btoa(svg);
+  return 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
 /**
@@ -131,27 +134,29 @@ export function generateCompositeBorderSVG(w, h, radius, sides) {
  * @returns {{hex: string | null, opacity: number}} - Object with hex color (without #) and opacity (0-1).
  */
 export function parseColor(str) {
-  if (!str || str === "transparent" || str.startsWith("rgba(0, 0, 0, 0)")) {
-      return { hex: null, opacity: 0 };
+  if (!str || str === 'transparent' || str.startsWith('rgba(0, 0, 0, 0)')) {
+    return { hex: null, opacity: 0 };
   }
   if (str.startsWith('#')) {
-      let hex = str.slice(1);
-      if (hex.length === 3) hex = hex.split('').map(c => c+c).join('');
-      return { hex: hex.toUpperCase(), opacity: 1 };
+    let hex = str.slice(1);
+    if (hex.length === 3)
+      hex = hex
+        .split('')
+        .map((c) => c + c)
+        .join('');
+    return { hex: hex.toUpperCase(), opacity: 1 };
   }
-  const match = str.match(/[\d\.]+/g);
+  const match = str.match(/[\d.]+/g);
   if (match && match.length >= 3) {
-      const r = parseInt(match[0]);
-      const g = parseInt(match[1]);
-      const b = parseInt(match[2]);
-      const a = match.length > 3 ? parseFloat(match[3]) : 1;
-      const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-      return { hex, opacity: a };
+    const r = parseInt(match[0]);
+    const g = parseInt(match[1]);
+    const b = parseInt(match[2]);
+    const a = match.length > 3 ? parseFloat(match[3]) : 1;
+    const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+    return { hex, opacity: a };
   }
   return { hex: null, opacity: 0 };
 }
-
-
 
 /**
  * Calculates padding values from computed CSS styles, scaled to inches.
@@ -160,13 +165,13 @@ export function parseColor(str) {
  * @returns {number[]} - An array of padding values [top, right, bottom, left] in inches.
  */
 export function getPadding(style, scale) {
-    const pxToInch = 1 / 96;
-    return [
-        (parseFloat(style.paddingTop) || 0) * pxToInch * scale,
-        (parseFloat(style.paddingRight) || 0) * pxToInch * scale,
-        (parseFloat(style.paddingBottom) || 0) * pxToInch * scale,
-        (parseFloat(style.paddingLeft) || 0) * pxToInch * scale
-    ];
+  const pxToInch = 1 / 96;
+  return [
+    (parseFloat(style.paddingTop) || 0) * pxToInch * scale,
+    (parseFloat(style.paddingRight) || 0) * pxToInch * scale,
+    (parseFloat(style.paddingBottom) || 0) * pxToInch * scale,
+    (parseFloat(style.paddingLeft) || 0) * pxToInch * scale,
+  ];
 }
 
 /**
@@ -176,8 +181,8 @@ export function getPadding(style, scale) {
  * @returns {number | null} - The blur radius in points, or null if no blur is found.
  */
 export function getSoftEdges(filterStr, scale) {
-  if (!filterStr || filterStr === "none") return null;
-  const match = filterStr.match(/blur\(([\d\.]+)px\)/);
+  if (!filterStr || filterStr === 'none') return null;
+  const match = filterStr.match(/blur\(([\d.]+)px\)/);
   if (match) return parseFloat(match[1]) * 0.75 * scale;
   return null;
 }
@@ -191,20 +196,20 @@ export function getSoftEdges(filterStr, scale) {
  */
 export function getTextStyle(style, scale) {
   let colorObj = parseColor(style.color);
-  
+
   const bgClip = style.webkitBackgroundClip || style.backgroundClip;
   if (colorObj.opacity === 0 && bgClip === 'text') {
-      const fallback = getGradientFallbackColor(style.backgroundImage);
-      if (fallback) colorObj = parseColor(fallback);
+    const fallback = getGradientFallbackColor(style.backgroundImage);
+    if (fallback) colorObj = parseColor(fallback);
   }
 
   return {
-    color: colorObj.hex || "000000",
-    fontFace: style.fontFamily.split(",")[0].replace(/['"]/g, ""),
+    color: colorObj.hex || '000000',
+    fontFace: style.fontFamily.split(',')[0].replace(/['"]/g, ''),
     fontSize: parseFloat(style.fontSize) * 0.75 * scale,
     bold: parseInt(style.fontWeight) >= 600,
-    italic: style.fontStyle === "italic",
-    underline: style.textDecoration.includes("underline"),
+    italic: style.fontStyle === 'italic',
+    underline: style.textDecoration.includes('underline'),
   };
 }
 
@@ -219,9 +224,9 @@ export function isTextContainer(node) {
   if (!hasText) return false;
   const children = Array.from(node.children);
   if (children.length === 0) return true;
-  const isInline = (el) => 
-    window.getComputedStyle(el).display.includes("inline") || 
-    ["SPAN", "B", "STRONG", "EM", "I", "A", "SMALL"].includes(el.tagName);
+  const isInline = (el) =>
+    window.getComputedStyle(el).display.includes('inline') ||
+    ['SPAN', 'B', 'STRONG', 'EM', 'I', 'A', 'SMALL'].includes(el.tagName);
   return children.every(isInline);
 }
 
@@ -249,31 +254,41 @@ export function svgToPng(node) {
   return new Promise((resolve) => {
     const clone = node.cloneNode(true);
     const rect = node.getBoundingClientRect();
-    const width = rect.width || 300; 
+    const width = rect.width || 300;
     const height = rect.height || 150;
 
     function inlineStyles(source, target) {
       const computed = window.getComputedStyle(source);
-      const properties = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-weight'];
-      
+      const properties = [
+        'fill',
+        'stroke',
+        'stroke-width',
+        'stroke-linecap',
+        'stroke-linejoin',
+        'opacity',
+        'font-family',
+        'font-size',
+        'font-weight',
+      ];
+
       if (computed.fill === 'none') target.setAttribute('fill', 'none');
       else if (computed.fill) target.style.fill = computed.fill;
-      
+
       if (computed.stroke === 'none') target.setAttribute('stroke', 'none');
       else if (computed.stroke) target.style.stroke = computed.stroke;
 
-      properties.forEach(prop => {
-          if (prop !== 'fill' && prop !== 'stroke') {
-              const val = computed[prop];
-              if (val && val !== 'auto') target.style[prop] = val;
-          }
+      properties.forEach((prop) => {
+        if (prop !== 'fill' && prop !== 'stroke') {
+          const val = computed[prop];
+          if (val && val !== 'auto') target.style[prop] = val;
+        }
       });
 
       for (let i = 0; i < source.children.length; i++) {
-          if (target.children[i]) inlineStyles(source.children[i], target.children[i]);
+        if (target.children[i]) inlineStyles(source.children[i], target.children[i]);
       }
     }
-    
+
     inlineStyles(node, clone);
 
     clone.setAttribute('width', width);
@@ -284,16 +299,16 @@ export function svgToPng(node) {
     const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
 
     const img = new Image();
-    img.crossOrigin = "Anonymous";
+    img.crossOrigin = 'Anonymous';
     img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const scale = 3; 
-        canvas.width = width * scale;
-        canvas.height = height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/png'));
+      const canvas = document.createElement('canvas');
+      const scale = 3;
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/png'));
     };
     img.onerror = () => resolve(null);
     img.src = svgUrl;
@@ -308,28 +323,30 @@ export function svgToPng(node) {
  * @returns {PptxGenJS.ShapeShadow | null} - PPTX shadow options, or null if no visible outer shadow.
  */
 export function getVisibleShadow(shadowStr, scale) {
-  if (!shadowStr || shadowStr === "none") return null;
-  const shadows = shadowStr.split(/,(?![^(]*\))/);
+  if (!shadowStr || shadowStr === 'none') return null;
+  const shadows = shadowStr.split(/,(?![^()]*\))/);
   for (let s of shadows) {
     s = s.trim();
-    if (s.startsWith("rgba(0, 0, 0, 0)")) continue;
-    const match = s.match(/(rgba?\([^\)]+\)|#[0-9a-fA-F]+)\s+(-?[\d\.]+)px\s+(-?[\d\.]+)px\s+([\d\.]+)px/);
+    if (s.startsWith('rgba(0, 0, 0, 0)')) continue;
+    const match = s.match(
+      /(rgba?\([^)]+\)|#[0-9a-fA-F]+)\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px/
+    );
     if (match) {
       const colorStr = match[1];
       const x = parseFloat(match[2]);
       const y = parseFloat(match[3]);
       const blur = parseFloat(match[4]);
-      const distance = Math.sqrt(x*x + y*y);
+      const distance = Math.sqrt(x * x + y * y);
       let angle = Math.atan2(y, x) * (180 / Math.PI);
       if (angle < 0) angle += 360;
       const colorObj = parseColor(colorStr);
       return {
-        type: "outer",
+        type: 'outer',
         angle: angle,
         blur: blur * 0.75 * scale,
         offset: distance * 0.75 * scale,
-        color: colorObj.hex || "000000",
-        opacity: colorObj.opacity 
+        color: colorObj.hex || '000000',
+        opacity: colorObj.opacity,
       };
     }
   }
@@ -347,44 +364,72 @@ export function getVisibleShadow(shadowStr, scale) {
  * @returns {string | null} - SVG data URL or null if parsing fails.
  */
 export function generateGradientSVG(w, h, bgString, radius, border) {
-    try {
-      const match = bgString.match(/linear-gradient\((.*)\)/);
-      if (!match) return null;
-      const content = match[1];
-      const parts = content.split(/,(?![^(]*\))/).map((p) => p.trim());
-      
-      let x1 = "0%", y1 = "0%", x2 = "0%", y2 = "100%";
-      let stopsStartIdx = 0;
-      if (parts[0].includes("to right")) { x1 = "0%"; x2 = "100%"; y2 = "0%"; stopsStartIdx = 1; }
-      else if (parts[0].includes("to left")) { x1 = "100%"; x2 = "0%"; y2 = "0%"; stopsStartIdx = 1; }
-      else if (parts[0].includes("to top")) { y1 = "100%"; y2 = "0%"; stopsStartIdx = 1; }
-      else if (parts[0].includes("to bottom")) { y1 = "0%"; y2 = "100%"; stopsStartIdx = 1; }
+  try {
+    const match = bgString.match(/linear-gradient\((.*)\)/);
+    if (!match) return null;
+    const content = match[1];
+    const parts = content.split(/,(?![^()]*\))/).map((p) => p.trim());
 
-      let stopsXML = "";
-      const stopParts = parts.slice(stopsStartIdx);
-      stopParts.forEach((part, idx) => {
-        let color = part;
-        let offset = Math.round((idx / (stopParts.length - 1)) * 100) + "%";
-        const posMatch = part.match(/(.*?)\s+(\d+(\.\d+)?%?)$/);
-        if (posMatch) { color = posMatch[1]; offset = posMatch[2]; }
-        let opacity = 1;
-        if (color.includes("rgba")) {
-           const rgba = color.match(/[\d\.]+/g);
-           if(rgba && rgba.length > 3) { opacity = rgba[3]; color = `rgb(${rgba[0]},${rgba[1]},${rgba[2]})`; }
+    let x1 = '0%',
+      y1 = '0%',
+      x2 = '0%',
+      y2 = '100%';
+    let stopsStartIdx = 0;
+    if (parts[0].includes('to right')) {
+      x1 = '0%';
+      x2 = '100%';
+      y2 = '0%';
+      stopsStartIdx = 1;
+    } else if (parts[0].includes('to left')) {
+      x1 = '100%';
+      x2 = '0%';
+      y2 = '0%';
+      stopsStartIdx = 1;
+    } else if (parts[0].includes('to top')) {
+      y1 = '100%';
+      y2 = '0%';
+      stopsStartIdx = 1;
+    } else if (parts[0].includes('to bottom')) {
+      y1 = '0%';
+      y2 = '100%';
+      stopsStartIdx = 1;
+    }
+
+    let stopsXML = '';
+    const stopParts = parts.slice(stopsStartIdx);
+    stopParts.forEach((part, idx) => {
+      let color = part;
+      let offset = Math.round((idx / (stopParts.length - 1)) * 100) + '%';
+      const posMatch = part.match(/(.*?)\s+(\d+(\.\d+)?%?)$/);
+      if (posMatch) {
+        color = posMatch[1];
+        offset = posMatch[2];
+      }
+      let opacity = 1;
+      if (color.includes('rgba')) {
+        const rgba = color.match(/[\d.]+/g);
+        if (rgba && rgba.length > 3) {
+          opacity = rgba[3];
+          color = `rgb(${rgba[0]},${rgba[1]},${rgba[2]})`;
         }
-        stopsXML += `<stop offset="${offset}" stop-color="${color}" stop-opacity="${opacity}"/>`;
-      });
+      }
+      stopsXML += `<stop offset="${offset}" stop-color="${color}" stop-opacity="${opacity}"/>`;
+    });
 
-      let strokeAttr = "";
-      if (border) { strokeAttr = `stroke="#${border.color}" stroke-width="${border.width}"`; }
+    let strokeAttr = '';
+    if (border) {
+      strokeAttr = `stroke="#${border.color}" stroke-width="${border.width}"`;
+    }
 
-      const svg = `
+    const svg = `
           <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
               <defs><linearGradient id="grad" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stopsXML}</linearGradient></defs>
               <rect x="0" y="0" width="${w}" height="${h}" rx="${radius}" ry="${radius}" fill="url(#grad)" ${strokeAttr} />
           </svg>`;
-      return "data:image/svg+xml;base64," + btoa(svg);
-    } catch (e) { return null; }
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -397,22 +442,22 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
  * @returns {{data: string, padding: number}} - Object containing SVG data URL and calculated padding.
  */
 export function generateBlurredSVG(w, h, color, radius, blurPx) {
-  const padding = blurPx * 3; 
-  const fullW = w + (padding * 2);
-  const fullH = h + (padding * 2);
+  const padding = blurPx * 3;
+  const fullW = w + padding * 2;
+  const fullH = h + padding * 2;
   const x = padding;
   const y = padding;
-  let shapeTag = "";
-  const isCircle = radius >= (Math.min(w, h) / 2) - 1 && Math.abs(w - h) < 2;
+  let shapeTag = '';
+  const isCircle = radius >= Math.min(w, h) / 2 - 1 && Math.abs(w - h) < 2;
 
   if (isCircle) {
-      const cx = x + w/2;
-      const cy = y + h/2;
-      const rx = w/2;
-      const ry = h/2;
-      shapeTag = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#${color}" filter="url(#f1)" />`;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const rx = w / 2;
+    const ry = h / 2;
+    shapeTag = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#${color}" filter="url(#f1)" />`;
   } else {
-      shapeTag = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" ry="${radius}" fill="#${color}" filter="url(#f1)" />`;
+    shapeTag = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" ry="${radius}" fill="#${color}" filter="url(#f1)" />`;
   }
 
   const svg = `
@@ -426,8 +471,7 @@ export function generateBlurredSVG(w, h, color, radius, blurPx) {
   </svg>`;
 
   return {
-      data: 'data:image/svg+xml;base64,' + btoa(svg),
-      padding: padding
+    data: 'data:image/svg+xml;base64,' + btoa(svg),
+    padding: padding,
   };
 }
-
