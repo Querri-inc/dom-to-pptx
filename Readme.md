@@ -41,7 +41,7 @@ This library is intended for use in the browser (React, Vue, Svelte, Vanilla JS,
 ### 1. Basic Example
 
 ```javascript
-import { exportToPptx } from 'dom-to-pptx'; // ESM or CJS import
+import { exportToPptx } from 'dom-to-pptx';
 
 // Note: If you are using a module bundler, it is recommended to import pptxgenjs
 // directly into your project to ensure tree-shaking and optimal bundle size.
@@ -50,7 +50,7 @@ import { exportToPptx } from 'dom-to-pptx'; // ESM or CJS import
 document.getElementById('download-btn').addEventListener('click', async () => {
   // Pass the CSS selector of the container you want to turn into a slide
   await exportToPptx('#slide-container', {
-    fileName: 'dashboard-report.pptx',
+    fileName: 'slide-presentation.pptx',
   });
 });
 ```
@@ -70,25 +70,49 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 });
 ```
 
-### 3. Direct Browser Usage (via Script Tag)
+### 3. Browser Usage (single-file bundle or legacy setup)
 
-For direct inclusion in a web page using a `<script>` tag, you can use the UMD bundle:
+You can use `dom-to-pptx` directly in the browser in two ways:
+
+- Recommended — Single-file bundle (includes runtime deps):
 
 ```html
-<!-- include pptxgenjs UMD bundle first -->
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@latest/dist/pptxgen.bundle.js"></script>
-
-<!-- then include dom-to-pptx UMD bundle -->
-<script src="https://cdn.jsdelivr.net/npm/dom-to-pptx@latest/dist/dom-to-pptx.min.js"></script>
+<!-- Single script that contains dom-to-pptx + pptxgenjs + html2canvas -->
+<script src="/node_modules/dom-to-pptx/dist/dom-to-pptx.bundle.js"></script>
 <script>
   document.getElementById('download-btn').addEventListener('click', async () => {
     // The library is available globally as `domToPptx`
-    await domToPptx.exportToPptx('#slide-container', {
-      fileName: 'dashboard-report.pptx',
-    });
+    await domToPptx.exportToPptx('#slide-container', { fileName: 'slide-presentation.pptx' });
   });
 </script>
 ```
+
+You can also load the bundle from a CDN (unpkg/jsdelivr):
+
+```html
+<script src="https://unpkg.com/dom-to-pptx@latest/dist/dom-to-pptx.bundle.js"></script>
+```
+
+- Legacy — Explicit runtime includes (smaller dom-to-pptx file, you manage deps):
+
+```html
+<!-- Load pptxgenjs first -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@latest/dist/pptxgen.bundle.js"></script>
+<!-- html2canvas is required by the legacy dom-to-pptx build for backdrop-filter and canvas image processing -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<!-- Then load the legacy dom-to-pptx file that expects the above libs -->
+<script src="/node_modules/dom-to-pptx/dist/dom-to-pptx.min.js"></script>
+<script>
+  document.getElementById('download-btn').addEventListener('click', async () => {
+    await domToPptx.exportToPptx('#slide-container', { fileName: 'slide-presentation.pptx' });
+  });
+</script>
+```
+
+Notes:
+
+- The standalone `dist/dom-to-pptx.bundle.js` includes `pptxgenjs` and `html2canvas`, so you only need one script tag.
+- If you prefer a smaller payload and already have `pptxgenjs` on the page, use the legacy `dist/dom-to-pptx.min.js` and load `pptxgenjs` first.
 
 ### 4. Recommended HTML Structure
 
@@ -207,3 +231,19 @@ npm install dom-to-pptx
 ```
 
 If you prefer to manage `pptxgenjs` yourself (smaller bundle), the legacy `dist/dom-to-pptx.min.js` remains available and expects `pptxgenjs` to be loaded separately.
+
+Legacy usage note:
+
+```html
+<!-- Load pptxgenjs first -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@latest/dist/pptxgen.bundle.js"></script>
+<!-- html2canvas is required by the legacy dom-to-pptx build for backdrop-filter and canvas image processing -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<!-- Then load the legacy dom-to-pptx file that expects the above libs -->
+<script src="/node_modules/dom-to-pptx/dist/dom-to-pptx.min.js"></script>
+<script>
+  document.getElementById('download-btn').addEventListener('click', async () => {
+    await domToPptx.exportToPptx('#slide-container', { fileName: 'dashboard-report.pptx' });
+  });
+</script>
+```
