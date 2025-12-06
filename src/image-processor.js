@@ -24,18 +24,21 @@ export async function getProcessedImage(src, targetW, targetH, radius) {
 
       // 1. Draw the Mask (Custom Shape with specific corners)
       ctx.beginPath();
-      
+
       // Border Radius Clamping Logic (CSS Spec)
       // Prevents corners from overlapping if radii are too large for the container
       const factor = Math.min(
-        (targetW / (r.tl + r.tr)) || Infinity,
-        (targetH / (r.tr + r.br)) || Infinity,
-        (targetW / (r.br + r.bl)) || Infinity,
-        (targetH / (r.bl + r.tl)) || Infinity
+        targetW / (r.tl + r.tr) || Infinity,
+        targetH / (r.tr + r.br) || Infinity,
+        targetW / (r.br + r.bl) || Infinity,
+        targetH / (r.bl + r.tl) || Infinity
       );
 
       if (factor < 1) {
-        r.tl *= factor; r.tr *= factor; r.br *= factor; r.bl *= factor;
+        r.tl *= factor;
+        r.tr *= factor;
+        r.br *= factor;
+        r.bl *= factor;
       }
 
       // Draw path: Top-Left -> Top-Right -> Bottom-Right -> Bottom-Left
@@ -48,7 +51,7 @@ export async function getProcessedImage(src, targetW, targetH, radius) {
       ctx.arcTo(0, targetH, 0, targetH - r.bl, r.bl);
       ctx.lineTo(0, r.tl);
       ctx.arcTo(0, 0, r.tl, 0, r.tl);
-      
+
       ctx.closePath();
       ctx.fillStyle = '#000';
       ctx.fill();

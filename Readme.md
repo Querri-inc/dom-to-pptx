@@ -1,6 +1,6 @@
 # dom-to-pptx
 
-**The High-Fidelity HTML to PowerPoint Converter (v1.0.4).**
+**The High-Fidelity HTML to PowerPoint Converter (v1.0.6).**
 
 Most HTML-to-PPTX libraries fail when faced with modern web design. They break on gradients, misalign text, ignore rounded corners, or simply take a screenshot (which isn't editable).
 
@@ -213,7 +213,7 @@ This project is built on top of [PptxGenJS](https://github.com/gitbrent/PptxGenJ
 
 ## Bundle & Dependencies
 
-Starting with v1.0.4 `dom-to-pptx` ships a standalone browser bundle that includes runtime dependencies (for convenience).
+Starting with v1.0.6 `dom-to-pptx` ships a standalone browser bundle that includes runtime dependencies (for convenience).
 
 - If you use npm / a bundler, run:
 
@@ -231,6 +231,45 @@ npm install dom-to-pptx
 ```
 
 If you prefer to manage `pptxgenjs` yourself (smaller bundle), the legacy `dist/dom-to-pptx.min.js` remains available and expects `pptxgenjs` to be loaded separately.
+
+### Notes for bundler users (Vite / Rollup / Webpack)
+
+- **ESM/CJS builds keep `pptxgenjs` external.**
+  - The module outputs (`dist/dom-to-pptx.mjs` and `dist/dom-to-pptx.cjs`) _do not_ bundle `pptxgenjs` so that modern bundlers (like Vite) won't accidentally inline Node-only shims from that dependency. This keeps the ESM artifact safe for browser toolchains but requires you to have `pptxgenjs` installed in your project when using the module imports:
+
+```bash
+npm install dom-to-pptx pptxgenjs
+```
+
+- **If you get pre-bundling errors in Vite** (e.g., esbuild complaining about `https`, `stream`, or other Node built-ins), either install `pptxgenjs` in your app or use the provided standalone UMD bundle.
+
+- **Vite quick-workarounds**:
+  1. Use the bundled UMD in your dev server by adding a resolve alias in `vite.config.js`:
+
+  ```js
+  import { defineConfig } from 'vite';
+
+  export default defineConfig({
+    resolve: {
+      alias: {
+        'dom-to-pptx': '/node_modules/dom-to-pptx/dist/dom-to-pptx.bundle.js',
+      },
+    },
+  });
+  ```
+
+  2. Or exclude the package from Vite's dependency optimizer (temporary):
+
+  ```js
+  // vite.config.js
+  export default {
+    optimizeDeps: {
+      exclude: ['dom-to-pptx'],
+    },
+  };
+  ```
+
+Using the standalone bundle is the simplest path for direct browser usage; using the module build is best for app projects that manage dependencies themselves.
 
 Legacy usage note:
 

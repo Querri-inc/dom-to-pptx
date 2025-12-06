@@ -20,7 +20,7 @@ Note: The library measures computed layout from the browser (getBoundingClientRe
 - background-color, background-image (linear-gradient)
 - background-position, background-size (basic handling in gradients)
 - color, opacity
-- border, border-*-color, border-*-width, border-radius (per-corner)
+- border, border-_-color, border-_-width, border-radius (per-corner)
 - box-shadow (outer shadows mapped to PPTX outer shadows)
 - filter: blur() (soft-edge rendering via SVG)
 - backdrop-filter: blur() (simulated via html2canvas snapshot)

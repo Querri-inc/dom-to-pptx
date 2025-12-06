@@ -133,17 +133,20 @@ export function generateCompositeBorderSVG(w, h, radius, sides) {
  */
 export function generateCustomShapeSVG(w, h, color, opacity, radii) {
   let { tl, tr, br, bl } = radii;
-  
+
   // Clamp radii using CSS spec logic (avoid overlap)
   const factor = Math.min(
-    (w / (tl + tr)) || Infinity,
-    (h / (tr + br)) || Infinity,
-    (w / (br + bl)) || Infinity,
-    (h / (bl + tl)) || Infinity
+    w / (tl + tr) || Infinity,
+    h / (tr + br) || Infinity,
+    w / (br + bl) || Infinity,
+    h / (bl + tl) || Infinity
   );
-  
+
   if (factor < 1) {
-    tl *= factor; tr *= factor; br *= factor; bl *= factor;
+    tl *= factor;
+    tr *= factor;
+    br *= factor;
+    bl *= factor;
   }
 
   const path = `
@@ -174,7 +177,10 @@ export function parseColor(str) {
   if (str.startsWith('#')) {
     let hex = str.slice(1);
     if (hex.length === 3)
-      hex = hex.split('').map((c) => c + c).join('');
+      hex = hex
+        .split('')
+        .map((c) => c + c)
+        .join('');
     return { hex: hex.toUpperCase(), opacity: 1 };
   }
   const match = str.match(/[\d.]+/g);
@@ -239,7 +245,7 @@ export function isTextContainer(node) {
   const isSafeInline = (el) => {
     const style = window.getComputedStyle(el);
     const display = style.display;
-    
+
     // If it's a standard inline element
     const isInlineTag = ['SPAN', 'B', 'STRONG', 'EM', 'I', 'A', 'SMALL'].includes(el.tagName);
     const isInlineDisplay = display.includes('inline');
@@ -252,10 +258,11 @@ export function isTextContainer(node) {
     const hasContent = el.textContent.trim().length > 0;
     const bgColor = parseColor(style.backgroundColor);
     const hasVisibleBg = bgColor.hex && bgColor.opacity > 0;
-    const hasBorder = parseFloat(style.borderWidth) > 0 && parseColor(style.borderColor).opacity > 0;
+    const hasBorder =
+      parseFloat(style.borderWidth) > 0 && parseColor(style.borderColor).opacity > 0;
 
     if (!hasContent && (hasVisibleBg || hasBorder)) {
-      return false; 
+      return false;
     }
 
     return true;
@@ -283,8 +290,15 @@ export function svgToPng(node) {
     function inlineStyles(source, target) {
       const computed = window.getComputedStyle(source);
       const properties = [
-        'fill', 'stroke', 'stroke-width', 'stroke-linecap',
-        'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-weight',
+        'fill',
+        'stroke',
+        'stroke-width',
+        'stroke-linecap',
+        'stroke-linejoin',
+        'opacity',
+        'font-family',
+        'font-size',
+        'font-weight',
       ];
 
       if (computed.fill === 'none') target.setAttribute('fill', 'none');
@@ -367,16 +381,29 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
     const content = match[1];
     const parts = content.split(/,(?![^()]*\))/).map((p) => p.trim());
 
-    let x1 = '0%', y1 = '0%', x2 = '0%', y2 = '100%';
+    let x1 = '0%',
+      y1 = '0%',
+      x2 = '0%',
+      y2 = '100%';
     let stopsStartIdx = 0;
     if (parts[0].includes('to right')) {
-      x1 = '0%'; x2 = '100%'; y2 = '0%'; stopsStartIdx = 1;
+      x1 = '0%';
+      x2 = '100%';
+      y2 = '0%';
+      stopsStartIdx = 1;
     } else if (parts[0].includes('to left')) {
-      x1 = '100%'; x2 = '0%'; y2 = '0%'; stopsStartIdx = 1;
+      x1 = '100%';
+      x2 = '0%';
+      y2 = '0%';
+      stopsStartIdx = 1;
     } else if (parts[0].includes('to top')) {
-      y1 = '100%'; y2 = '0%'; stopsStartIdx = 1;
+      y1 = '100%';
+      y2 = '0%';
+      stopsStartIdx = 1;
     } else if (parts[0].includes('to bottom')) {
-      y1 = '0%'; y2 = '100%'; stopsStartIdx = 1;
+      y1 = '0%';
+      y2 = '100%';
+      stopsStartIdx = 1;
     }
 
     let stopsXML = '';

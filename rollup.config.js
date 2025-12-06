@@ -1,5 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import polyfillNode from 'rollup-plugin-polyfill-node';
 
 const input = 'src/index.js';
 
@@ -45,7 +46,9 @@ const configBundle = {
     esModule: false,
     sourcemap: false,
   },
-  plugins: [resolve(), commonjs()],
+  // Use a node polyfill plugin first so Node built-ins (stream, buffer, util, events, etc.)
+  // are shimmed for browser environments when creating the standalone bundle.
+  plugins: [polyfillNode(), resolve(), commonjs()],
   // Bundle everything for the standalone artifact.
   external: [],
 };
