@@ -12,6 +12,7 @@ import {
   getVisibleShadow,
   generateGradientSVG,
   getRotation,
+  svgToPng,
   getPadding,
   getSoftEdges,
   generateBlurredSVG,
@@ -312,23 +313,18 @@ function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, comput
 
   const items = [];
 
-  // --- ASYNC JOB: SVGs / Icons ---
-  if (
-    node.nodeName.toUpperCase() === 'SVG' ||
-    node.tagName.includes('-') ||
-    node.tagName === 'ION-ICON'
-  ) {
+  // --- ASYNC JOB: SVG Tags ---
+  if (node.nodeName.toUpperCase() === 'SVG') {
     const item = {
       type: 'image',
       zIndex,
       domOrder,
-      options: { x, y, w, h, rotate: rotation, data: null }, // Data null initially
+      options: { data: null, x, y, w, h, rotate: rotation },
     };
 
-    // Create Job
     const job = async () => {
-      const pngData = await elementToCanvasImage(node, widthPx, heightPx);
-      if (pngData) item.options.data = pngData;
+      const processed = await svgToPng(node);
+      if (processed) item.options.data = processed;
       else item.skip = true;
     };
 
@@ -372,6 +368,34 @@ function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, comput
     const job = async () => {
       const processed = await getProcessedImage(node.src, widthPx, heightPx, radii);
       if (processed) item.options.data = processed;
+      else item.skip = true;
+    };
+
+    return { items: [item], job, stopRecursion: true };
+  }
+
+  // --- ASYNC JOB: Icons and Other Elements ---
+  if (
+    node.tagName.toUpperCase() === 'MATERIAL-ICON' ||
+    node.tagName.toUpperCase() === 'ICONIFY-ICON' ||
+    node.tagName.toUpperCase() === 'REMIX-ICON' ||
+    node.tagName.toUpperCase() === 'ION-ICON' ||
+    node.tagName.toUpperCase() === 'EVA-ICON' ||
+    node.tagName.toUpperCase() === 'BOX-ICON' ||
+    node.tagName.toUpperCase() === 'FA-ICON' ||
+    node.tagName.includes('-')
+  ) {
+    const item = {
+      type: 'image',
+      zIndex,
+      domOrder,
+      options: { x, y, w, h, rotate: rotation, data: null }, // Data null initially
+    };
+
+    // Create Job
+    const job = async () => {
+      const pngData = await elementToCanvasImage(node, widthPx, heightPx);
+      if (pngData) item.options.data = pngData;
       else item.skip = true;
     };
 

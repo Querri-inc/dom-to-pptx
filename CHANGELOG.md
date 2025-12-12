@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.8] - 2025-12-12 (Hot-Patch)
+
+### Fixed
+
+- **Fixed SVGs not getting converted**: Seperated the logic to handle SVGs and Web Components/Icons.
+
+
 ## [1.0.7] - 2025-12-12
 
 ### Fixed
