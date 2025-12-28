@@ -233,6 +233,7 @@ export function getTextStyle(style, scale) {
 
 /**
  * Determines if a given DOM node is primarily a text container.
+ * Updated to correctly reject Icon elements so they are rendered as images.
  */
 export function isTextContainer(node) {
   const hasText = node.textContent.trim().length > 0;
@@ -241,28 +242,46 @@ export function isTextContainer(node) {
   const children = Array.from(node.children);
   if (children.length === 0) return true;
 
-  // Check if children are purely inline text formatting or visual shapes
   const isSafeInline = (el) => {
-    // 1. Reject Web Components / Icons / Images
+    // 1. Reject Web Components / Custom Elements
     if (el.tagName.includes('-')) return false;
+    // 2. Reject Explicit Images/SVGs
     if (el.tagName === 'IMG' || el.tagName === 'SVG') return false;
+
+    // 3. Reject Class-based Icons (FontAwesome, Material, Bootstrap, etc.)
+    // If an <i> or <span> has icon classes, it is a visual object, not text.
+    if (el.tagName === 'I' || el.tagName === 'SPAN') {
+      const cls = el.getAttribute('class') || '';
+      if (
+        cls.includes('fa-') ||
+        cls.includes('fas') ||
+        cls.includes('far') ||
+        cls.includes('fab') ||
+        cls.includes('material-icons') ||
+        cls.includes('bi-') ||
+        cls.includes('icon')
+      ) {
+        return false;
+      }
+    }
 
     const style = window.getComputedStyle(el);
     const display = style.display;
 
-    // 2. Initial check: Must be a standard inline tag OR display:inline
-    const isInlineTag = ['SPAN', 'B', 'STRONG', 'EM', 'I', 'A', 'SMALL', 'MARK'].includes(el.tagName);
+    // 4. Standard Inline Tag Check
+    const isInlineTag = ['SPAN', 'B', 'STRONG', 'EM', 'I', 'A', 'SMALL', 'MARK'].includes(
+      el.tagName
+    );
     const isInlineDisplay = display.includes('inline');
 
     if (!isInlineTag && !isInlineDisplay) return false;
 
-    // 3. CRITICAL FIX: Check for Structural Styling
-    // PPTX Text Runs (parts of a text line) CANNOT have backgrounds, borders, or padding.
-    // If a child element has these, the parent is NOT a simple text container; 
-    // it is a layout container composed of styled blocks.
+    // 5. Structural Styling Check
+    // If a child has a background or border, it's a layout block, not a simple text span.
     const bgColor = parseColor(style.backgroundColor);
     const hasVisibleBg = bgColor.hex && bgColor.opacity > 0;
-    const hasBorder = parseFloat(style.borderWidth) > 0 && parseColor(style.borderColor).opacity > 0;
+    const hasBorder =
+      parseFloat(style.borderWidth) > 0 && parseColor(style.borderColor).opacity > 0;
 
     if (hasVisibleBg || hasBorder) {
       return false;
@@ -383,57 +402,119 @@ export function getVisibleShadow(shadowStr, scale) {
   return null;
 }
 
+/**
+ * Generates an SVG image for gradients, supporting degrees and keywords.
+ */
 export function generateGradientSVG(w, h, bgString, radius, border) {
   try {
     const match = bgString.match(/linear-gradient\((.*)\)/);
     if (!match) return null;
     const content = match[1];
+
+    // Split by comma, ignoring commas inside parentheses (e.g. rgba())
     const parts = content.split(/,(?![^()]*\))/).map((p) => p.trim());
+    if (parts.length < 2) return null;
 
     let x1 = '0%',
       y1 = '0%',
       x2 = '0%',
       y2 = '100%';
-    let stopsStartIdx = 0;
-    if (parts[0].includes('to right')) {
-      x1 = '0%';
-      x2 = '100%';
-      y2 = '0%';
-      stopsStartIdx = 1;
-    } else if (parts[0].includes('to left')) {
-      x1 = '100%';
-      x2 = '0%';
-      y2 = '0%';
-      stopsStartIdx = 1;
-    } else if (parts[0].includes('to top')) {
-      y1 = '100%';
-      y2 = '0%';
-      stopsStartIdx = 1;
-    } else if (parts[0].includes('to bottom')) {
-      y1 = '0%';
-      y2 = '100%';
-      stopsStartIdx = 1;
+    let stopsStartIndex = 0;
+    const firstPart = parts[0].toLowerCase();
+
+    // 1. Check for Keywords (to right, etc.)
+    if (firstPart.startsWith('to ')) {
+      stopsStartIndex = 1;
+      const direction = firstPart.replace('to ', '').trim();
+      switch (direction) {
+        case 'top':
+          y1 = '100%';
+          y2 = '0%';
+          break;
+        case 'bottom':
+          y1 = '0%';
+          y2 = '100%';
+          break;
+        case 'left':
+          x1 = '100%';
+          x2 = '0%';
+          break;
+        case 'right':
+          x2 = '100%';
+          break;
+        case 'top right':
+          x1 = '0%';
+          y1 = '100%';
+          x2 = '100%';
+          y2 = '0%';
+          break;
+        case 'top left':
+          x1 = '100%';
+          y1 = '100%';
+          x2 = '0%';
+          y2 = '0%';
+          break;
+        case 'bottom right':
+          x2 = '100%';
+          y2 = '100%';
+          break;
+        case 'bottom left':
+          x1 = '100%';
+          y2 = '100%';
+          break;
+      }
+    }
+    // 2. Check for Degrees (45deg, 90deg, etc.)
+    else if (firstPart.match(/^-?[\d.]+(deg|rad|turn|grad)$/)) {
+      stopsStartIndex = 1;
+      const val = parseFloat(firstPart);
+      // CSS 0deg is Top (North), 90deg is Right (East), 180deg is Bottom (South)
+      // We convert this to SVG coordinates on a unit square (0-100%).
+      // Formula: Map angle to perimeter coordinates.
+      if (!isNaN(val)) {
+        const deg = firstPart.includes('rad') ? val * (180 / Math.PI) : val;
+        const cssRad = ((deg - 90) * Math.PI) / 180; // Correct CSS angle offset
+
+        // Calculate standard vector for rectangle center (50, 50)
+        const scale = 50; // Distance from center to edge (approx)
+        const cos = Math.cos(cssRad); // Y component (reversed in SVG)
+        const sin = Math.sin(cssRad); // X component
+
+        // Invert Y for SVG coordinate system
+        x1 = (50 - sin * scale).toFixed(1) + '%';
+        y1 = (50 + cos * scale).toFixed(1) + '%';
+        x2 = (50 + sin * scale).toFixed(1) + '%';
+        y2 = (50 - cos * scale).toFixed(1) + '%';
+      }
     }
 
+    // 3. Process Color Stops
     let stopsXML = '';
-    const stopParts = parts.slice(stopsStartIdx);
+    const stopParts = parts.slice(stopsStartIndex);
+
     stopParts.forEach((part, idx) => {
+      // Parse "Color Position" (e.g., "red 50%")
+      // Regex looks for optional space + number + unit at the end of the string
       let color = part;
       let offset = Math.round((idx / (stopParts.length - 1)) * 100) + '%';
-      const posMatch = part.match(/(.*?)\s+(\d+(\.\d+)?%?)$/);
+
+      const posMatch = part.match(/^(.*?)\s+(-?[\d.]+(?:%|px)?)$/);
       if (posMatch) {
         color = posMatch[1];
         offset = posMatch[2];
       }
+
+      // Handle RGBA/RGB for SVG compatibility
       let opacity = 1;
       if (color.includes('rgba')) {
-        const rgba = color.match(/[\d.]+/g);
-        if (rgba && rgba.length > 3) {
-          opacity = rgba[3];
-          color = `rgb(${rgba[0]},${rgba[1]},${rgba[2]})`;
+        const rgbaMatch = color.match(/[\d.]+/g);
+        if (rgbaMatch && rgbaMatch.length >= 4) {
+          opacity = rgbaMatch[3];
+          color = `rgb(${rgbaMatch[0]},${rgbaMatch[1]},${rgbaMatch[2]})`;
         }
       }
-      stopsXML += `<stop offset="${offset}" stop-color="${color}" stop-opacity="${opacity}"/>`;
+
+      stopsXML += `<stop offset="${offset}" stop-color="${color.trim()}" stop-opacity="${opacity}"/>`;
     });
 
     let strokeAttr = '';
@@ -442,12 +523,18 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
     }
 
     const svg = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-              <defs><linearGradient id="grad" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stopsXML}</linearGradient></defs>
-              <rect x="0" y="0" width="${w}" height="${h}" rx="${radius}" ry="${radius}" fill="url(#grad)" ${strokeAttr} />
-          </svg>`;
+      <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+          <defs>
+            <linearGradient id="grad" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">
+              ${stopsXML}
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="${w}" height="${h}" rx="${radius}" ry="${radius}" fill="url(#grad)" ${strokeAttr} />
+      </svg>`;
+
     return 'data:image/svg+xml;base64,' + btoa(svg);
-  } catch {
+  } catch (e) {
+    console.warn('Gradient generation failed:', e);
     return null;
   }
 }

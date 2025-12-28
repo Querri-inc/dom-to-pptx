@@ -173,29 +173,69 @@ async function processSlide(root, slide, pptx) {
  * Optimized html2canvas wrapper
  * Now strictly captures the node itself, not the root.
  */
+/**
+ * Optimized html2canvas wrapper
+ * Includes fix for cropped icons by adjusting styles in the cloned document.
+ */
 async function elementToCanvasImage(node, widthPx, heightPx) {
   return new Promise((resolve) => {
+    // 1. Assign a temp ID to locate the node inside the cloned document
+    const originalId = node.id;
+    const tempId = 'pptx-capture-' + Math.random().toString(36).substr(2, 9);
+    node.id = tempId;
+
     const width = Math.max(Math.ceil(widthPx), 1);
     const height = Math.max(Math.ceil(heightPx), 1);
     const style = window.getComputedStyle(node);
 
-    // Optimized: Capture ONLY the specific node
     html2canvas(node, {
       backgroundColor: null,
       logging: false,
-      scale: 2, // Slight quality boost
+      scale: 3, // Higher scale for sharper icons
+      useCORS: true, // critical for external fonts/images
+      onclone: (clonedDoc) => {
+        const clonedNode = clonedDoc.getElementById(tempId);
+        if (clonedNode) {
+          // --- FIX: PREVENT ICON CLIPPING ---
+          // 1. Force overflow visible so glyphs bleeding out aren't cut
+          clonedNode.style.overflow = 'visible';
+
+          // 2. Adjust alignment for Icons to prevent baseline clipping
+          // (Applies to <i>, <span>, or standard icon classes)
+          const tag = clonedNode.tagName;
+          if (tag === 'I' || tag === 'SPAN' || clonedNode.className.includes('fa-')) {
+            // Flex center helps align the glyph exactly in the middle of the box
+            // preventing top/bottom cropping due to line-height mismatches.
+            clonedNode.style.display = 'inline-flex';
+            clonedNode.style.justifyContent = 'center';
+            clonedNode.style.alignItems = 'center';
+
+            // Remove margins that might offset the capture
+            clonedNode.style.margin = '0';
+
+            // Ensure the font fits
+            clonedNode.style.lineHeight = '1';
+            clonedNode.style.verticalAlign = 'middle';
+          }
+        }
+      },
     })
       .then((canvas) => {
+        // Restore the original ID
+        if (originalId) node.id = originalId;
+        else node.removeAttribute('id');
+
         const destCanvas = document.createElement('canvas');
         destCanvas.width = width;
         destCanvas.height = height;
         const ctx = destCanvas.getContext('2d');
 
-        // Draw the captured canvas into our sized canvas
-        // html2canvas might return a larger canvas if scale > 1, so we fit it
+        // Draw captured canvas.
+        // We simply draw it to fill the box. Since we centered it in 'onclone',
+        // the glyph should now be visible within the bounds.
         ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, width, height);
 
-        // Apply border radius clipping
+        // --- Border Radius Clipping (Existing Logic) ---
         let tl = parseFloat(style.borderTopLeftRadius) || 0;
         let tr = parseFloat(style.borderTopRightRadius) || 0;
         let br = parseFloat(style.borderBottomRightRadius) || 0;
@@ -234,10 +274,60 @@ async function elementToCanvasImage(node, widthPx, heightPx) {
         resolve(destCanvas.toDataURL('image/png'));
       })
       .catch((e) => {
+        if (originalId) node.id = originalId;
+        else node.removeAttribute('id');
         console.warn('Canvas capture failed for node', node, e);
         resolve(null);
       });
   });
+}
+
+/**
+ * Helper to identify elements that should be rendered as icons (Images).
+ * Detects Custom Elements AND generic tags (<i>, <span>) with icon classes/pseudo-elements.
+ */
+function isIconElement(node) {
+  // 1. Custom Elements (hyphenated tags) or Explicit Library Tags
+  const tag = node.tagName.toUpperCase();
+  if (
+    tag.includes('-') ||
+    [
+      'MATERIAL-ICON',
+      'ICONIFY-ICON',
+      'REMIX-ICON',
+      'ION-ICON',
+      'EVA-ICON',
+      'BOX-ICON',
+      'FA-ICON',
+    ].includes(tag)
+  ) {
+    return true;
+  }
+
+  // 2. Class-based Icons (FontAwesome, Bootstrap, Material symbols) on <i> or <span>
+  if (tag === 'I' || tag === 'SPAN') {
+    const cls = node.getAttribute('class') || '';
+    if (
+      typeof cls === 'string' &&
+      (cls.includes('fa-') ||
+        cls.includes('fas') ||
+        cls.includes('far') ||
+        cls.includes('fab') ||
+        cls.includes('bi-') ||
+        cls.includes('material-icons') ||
+        cls.includes('icon'))
+    ) {
+      // Double-check: Must have pseudo-element content to be a CSS icon
+      const before = window.getComputedStyle(node, '::before').content;
+      const after = window.getComputedStyle(node, '::after').content;
+      const hasContent = (c) => c && c !== 'none' && c !== 'normal' && c !== '""';
+
+      if (hasContent(before) || hasContent(after)) return true;
+    }
+    console.log('Icon element:', node, cls);
+  }
+
+  return false;
 }
 
 /**
@@ -375,30 +465,18 @@ function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, comput
   }
 
   // --- ASYNC JOB: Icons and Other Elements ---
-  if (
-    node.tagName.toUpperCase() === 'MATERIAL-ICON' ||
-    node.tagName.toUpperCase() === 'ICONIFY-ICON' ||
-    node.tagName.toUpperCase() === 'REMIX-ICON' ||
-    node.tagName.toUpperCase() === 'ION-ICON' ||
-    node.tagName.toUpperCase() === 'EVA-ICON' ||
-    node.tagName.toUpperCase() === 'BOX-ICON' ||
-    node.tagName.toUpperCase() === 'FA-ICON' ||
-    node.tagName.includes('-')
-  ) {
+  if (isIconElement(node)) {
     const item = {
       type: 'image',
       zIndex,
       domOrder,
-      options: { x, y, w, h, rotate: rotation, data: null }, // Data null initially
+      options: { x, y, w, h, rotate: rotation, data: null },
     };
-
-    // Create Job
     const job = async () => {
       const pngData = await elementToCanvasImage(node, widthPx, heightPx);
       if (pngData) item.options.data = pngData;
       else item.skip = true;
     };
-
     return { items: [item], job, stopRecursion: true };
   }
 

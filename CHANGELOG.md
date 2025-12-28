@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.9] - 2025-12-12 (Hot-Patch)
+
+### Fixed
+
+- **Linear Gradients not applied properly**: Seperated the logic to handle tailwind class and normal css.
+- **Font Awesome icon library cannot be converted**: Updated logic to handle Icons inside lists and span elements.
+
 ## [1.0.8] - 2025-12-12 (Hot-Patch)
 
 ### Fixed
