@@ -1,6 +1,6 @@
 # dom-to-pptx
 
-**The High-Fidelity HTML to PowerPoint Converter (v1.0.8).**
+**The High-Fidelity HTML to PowerPoint Converter (v1.1.0)**
 
 Most HTML-to-PPTX libraries fail when faced with modern web design. They break on gradients, misalign text, ignore rounded corners, or simply take a screenshot (which isn't editable).
 
@@ -8,19 +8,20 @@ Most HTML-to-PPTX libraries fail when faced with modern web design. They break o
 
 ## Features
 
-### 🎨 Advanced Visual Fidelity
+### 🚀 New in v1.1.0
+- **Smart Font Embedding:** The library **automatically detects** the fonts used in your HTML, finds their URLs in your CSS, and embeds them into the PPTX. Your slides will look identical on any computer, even if the user doesn't have the fonts installed.
+- **Enhanced Icon Support:** Flawless rendering of FontAwesome, Material Icons, and SVG-based icon libraries (including gradient text icons).
 
-- **Complex Gradients:** Includes a built-in CSS Gradient Parser that converts `linear-gradient` strings (with multiple stops, angles, and transparency) into vector SVGs for perfect rendering. This now also supports `text-fill-color` gradients, falling back to the first color for broad compatibility.
+### 🎨 Advanced Visual Fidelity
+- **Complex Gradients:** Includes a built-in CSS Gradient Parser that converts `linear-gradient` strings (with multiple stops, specific angles like `45deg`, and transparency) into vector SVGs.
 - **Mathematically Accurate Shadows:** Converts CSS Cartesian shadows (`x`, `y`, `blur`) into PowerPoint's Polar coordinate system (`angle`, `distance`) for 1:1 depth matching.
 - **Anti-Halo Image Processing:** Uses off-screen HTML5 Canvas with `source-in` composite masking to render rounded images without the ugly white "halo" artifacts found in other libraries.
 - **Soft Edges/Blurs:** Accurately translates CSS `filter: blur()` into PowerPoint's soft-edge effects, preserving visual depth.
 
 ### 📐 Smart Layout & Typography
-
-- **Auto-Scaling Engine:** Build your slide in HTML at **1920x1080** (or any aspect ratio). The library automatically calculates the scaling factor to fit it perfectly into a standard 16:9 PowerPoint slide (10 x 5.625 inches) with auto-centering.
-- **Rich Text Blocks:** Handles mixed-style text (e.g., **bold** spans inside a normal paragraph) while sanitizing HTML source code whitespace (newlines/tabs) to prevent jagged text alignment.
-- **Font Stack Normalization:** Automatically maps web-only fonts (like `ui-sans-serif`, `system-ui`) to safe system fonts (`Arial`, `Calibri`) to ensure the file opens correctly on any computer.
-- **Text Transformations:** Supports CSS `text-transform: uppercase/lowercase` and `letter-spacing` (converted to PT).
+- **Auto-Scaling Engine:** Build your slide in HTML at **1920x1080** (or any aspect ratio). The library automatically calculates the scaling factor to fit it perfectly into a standard 16:9 PowerPoint slide.
+- **Rich Text Blocks:** Handles mixed-style text (e.g., **bold** spans inside a normal paragraph).
+- **Text Transformations:** Supports CSS `text-transform: uppercase/lowercase` and `letter-spacing`.
 
 ### ⚡ Technical Capabilities
 
@@ -38,27 +39,46 @@ npm install dom-to-pptx
 
 This library is intended for use in the browser (React, Vue, Svelte, Vanilla JS, etc.).
 
-### 1. Basic Example
+### 1. Basic Example (Auto-Font Embedding)
+
+By default, `dom-to-pptx` attempts to automatically find and embed your web fonts.
 
 ```javascript
 import { exportToPptx } from 'dom-to-pptx';
 
-// import PptxGenJS from 'pptxgenjs'; // Uncomment and use if needed for your setup
-
 document.getElementById('export-btn').addEventListener('click', async () => {
-  // Pass the CSS selector of the container you want to turn into a slide
+  // Pass the CSS selector of the container
   await exportToPptx('#slide-container', {
     fileName: 'slide-presentation.pptx',
   });
 });
 ```
 
-### 2. Multi-Slide Example
+### 2. Manual Font Configuration (Optional)
+
+If you are using external fonts (like Google Fonts) that are hosted on a server without CORS headers, automatic detection might fail. In that case, you can explicitly pass the font URLs:
+
+```javascript
+import { exportToPptx } from 'dom-to-pptx';
+
+await exportToPptx('#slide-container', { 
+    fileName: 'report.pptx',
+    // Optional: Only needed if auto-detection fails due to CORS
+    fonts: [
+       { 
+         name: 'Roboto', 
+         url: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxK.woff2' 
+       }
+    ]
+});
+```
+
+### 3. Multi-Slide Example
 
 To export multiple HTML elements as separate slides, pass an array of elements or selectors:
 
 ```javascript
-import { exportToPptx } from 'dom-to-pptx'; // ESM or CJS import
+import { exportToPptx } from 'dom-to-pptx';
 
 document.getElementById('export-btn').addEventListener('click', async () => {
   const slideElements = document.querySelectorAll('.slide');
@@ -68,59 +88,26 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 });
 ```
 
-### 3. Browser Usage (single-file bundle or legacy setup)
+### 4. Browser Usage (Script Tags)
 
-You can use `dom-to-pptx` directly in the browser in two ways:
-
-- Recommended — Single-file bundle (includes runtime deps):
+You can use `dom-to-pptx` directly via CDN. The bundle includes all dependencies.
 
 ```html
-<!-- Single script that contains dom-to-pptx + pptxgenjs + html2canvas -->
 <script src="https://cdn.jsdelivr.net/npm/dom-to-pptx@latest/dist/dom-to-pptx.bundle.js"></script>
+
 <script>
   document.getElementById('export-btn').addEventListener('click', async () => {
     // The library is available globally as `domToPptx`
-    await domToPptx.exportToPptx('#slide-container', { fileName: 'slide-presentation.pptx' });
+    await domToPptx.exportToPptx('#slide-container', { 
+      fileName: 'slide.pptx' 
+    });
   });
 </script>
 ```
 
-You can load the bundle from a CDN (unpkg/jsdelivr):
+## Recommended HTML Structure
 
-```html
-<script src="https://unpkg.com/dom-to-pptx@latest/dist/dom-to-pptx.bundle.js"></script>
-```
-```html
-<script src="https://cdn.jsdelivr.net/npm/dom-to-pptx@latest/dist/dom-to-pptx.bundle.js"></script>
-```
-
-
-- Legacy — Explicit runtime includes (smaller dom-to-pptx file, you manage deps):
-
-```html
-<!-- Load pptxgenjs first -->
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@latest/dist/pptxgen.bundle.js"></script>
-<!-- html2canvas is required by the legacy dom-to-pptx build for backdrop-filter and canvas image processing -->
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<!-- Then load the legacy dom-to-pptx file that expects the above libs -->
-<script src="https://cdn.jsdelivr.net/npm/dom-to-pptx@latest/dist/dom-to-pptx.min.js"></script>
-<script>
-  document.getElementById('download-btn').addEventListener('click', async () => {
-    await domToPptx.exportToPptx('#slide-container', { fileName: 'slide-presentation.pptx' });
-  });
-</script>
-```
-
-Notes:
-
-- The standalone `dist/dom-to-pptx.bundle.js` includes `pptxgenjs` and `html2canvas`, so you only need one script tag.
-- If you prefer a smaller payload and already have `pptxgenjs` on the page, use the legacy `dist/dom-to-pptx.min.js` and load `pptxgenjs` first.
-
-### 4. Recommended HTML Structure
-
-### Recommended HTML Structure
-
-For the best results, treat your container as a fixed-size canvas. We recommend building your slide at **1920x1080px**. The library will handle the downscaling.
+We recommend building your slide container at **1920x1080px**. The library will handle the downscaling to fit the PowerPoint slide (16:9).
 
 ```html
 <!-- Container (16:9 Aspect Ratio) -->
@@ -309,16 +296,23 @@ For the best results, treat your container as a fixed-size canvas. We recommend 
 
 **Options Object:**
 
-| Key               | Type     | Default        | Description                                   |
-| :---------------- | :------- | :------------- | :-------------------------------------------- |
-| `fileName`        | `string` | `"slide.pptx"` | The name of the downloaded file.              |
-| `backgroundColor` | `string` | `null`         | Force a background color for the slide (hex). |
+| Key              | Type      | Default        | Description                                   |
+| :--------------- | :-------- | :------------- | :-------------------------------------------- |
+| `fileName`       | `string`  | `"export.pptx"` | The name of the downloaded file.              |
+| `autoEmbedFonts` | `boolean` | `true`         | Automatically detect and embed used fonts.    |
+| `fonts`          | `Array`   | `[]`           | Manual array of font objects: `{ name, url }`. |
 
 ## Important Notes
 
-1.  **CORS Images:** Because this library uses HTML5 Canvas to process rounded images, any external images must be served with `Access-Control-Allow-Origin: *` headers. If an image is "tainted" (CORS blocked), the browser will refuse to read its data, and it may appear blank in the PPTX.
-2.  **Layout System:** The library does not "read" Flexbox or Grid definitions directly. Instead, it lets the browser render the layout, measures the final `x, y, width, height` (BoundingBox) of every element, and places them absolutely on the slide. This ensures 100% visual accuracy regardless of the layout method used.
-3.  **Fonts:** PPTX files use the fonts installed on the viewer's OS. If you use a web font like "Inter", and the user doesn't have it installed, PowerPoint will fallback to Arial.
+1.  **Fonts & CORS:** 
+    *   **Automatic Embedding:** Works perfectly for local fonts and external fonts served with correct CORS headers. 
+    *   **Google Fonts:** For auto-detection to work with Google Fonts, you must add `crossorigin="anonymous"` to your link tag:
+        `<link href="https://fonts.googleapis.com/..." rel="stylesheet" crossorigin="anonymous">`
+    *   If a font cannot be accessed due to CORS, the library will log a warning and proceed without embedding it (PowerPoint will fallback to Arial).
+
+2.  **Layout System:** The library does not "read" Flexbox or Grid definitions directly. It measures the final `x, y, width, height` of every element relative to the slide root and places them absolutely. This ensures 100% visual accuracy regardless of the CSS layout method used.
+
+3.  **CORS Images:** External images (`<img>` tags) must also be served with `Access-Control-Allow-Origin: *` headers to be processed by the rounding/masking engine.
 
 ## License
 

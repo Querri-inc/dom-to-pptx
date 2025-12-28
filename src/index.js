@@ -1,6 +1,8 @@
 // src/index.js
 import * as PptxGenJSImport from 'pptxgenjs';
 import html2canvas from 'html2canvas';
+import { PPTXEmbedFonts } from './font-embedder.js';
+import JSZip from 'jszip';
 
 // Normalize import
 const PptxGenJS = PptxGenJSImport?.default ?? PptxGenJSImport;
@@ -20,6 +22,8 @@ import {
   generateCompositeBorderSVG,
   isClippedByParent,
   generateCustomShapeSVG,
+  getUsedFontFamilies,
+  getAutoDetectedFonts,
 } from './utils.js';
 import { getProcessedImage } from './image-processor.js';
 
@@ -27,9 +31,12 @@ const PPI = 96;
 const PX_TO_INCH = 1 / PPI;
 
 /**
- * Main export function. Accepts single element or an array.
- * @param {HTMLElement | string | Array<HTMLElement | string>} target - The root element(s) to convert.
- * @param {Object} options - { fileName: string }
+ * Main export function.
+ * @param {HTMLElement | string | Array<HTMLElement | string>} target
+ * @param {Object} options
+ * @param {string} [options.fileName]
+ * @param {Array<{name: string, url: string}>} [options.fonts] - Explicit fonts
+ * @param {boolean} [options.autoEmbedFonts=true] - Attempt to auto-detect and embed used fonts
  */
 export async function exportToPptx(target, options = {}) {
   const resolvePptxConstructor = (pkg) => {
@@ -59,8 +66,74 @@ export async function exportToPptx(target, options = {}) {
     await processSlide(root, slide, pptx);
   }
 
+    // 3. Font Embedding Logic
+  let finalBlob;
+  let fontsToEmbed = options.fonts || [];
+
+  if (options.autoEmbedFonts) {
+    // A. Scan DOM for used font families
+    const usedFamilies = getUsedFontFamilies(elements);
+    
+    // B. Scan CSS for URLs matches
+    const detectedFonts = await getAutoDetectedFonts(usedFamilies);
+    
+    // C. Merge (Avoid duplicates)
+    const explicitNames = new Set(fontsToEmbed.map(f => f.name));
+    for (const autoFont of detectedFonts) {
+        if (!explicitNames.has(autoFont.name)) {
+            fontsToEmbed.push(autoFont);
+        }
+    }
+    
+    if (detectedFonts.length > 0) {
+        console.log('Auto-detected fonts:', detectedFonts.map(f => f.name));
+    }
+  }
+
+  if (fontsToEmbed.length > 0) {
+    // Generate initial PPTX
+    const initialBlob = await pptx.write({ outputType: 'blob' });
+    
+    // Load into Embedder
+    const zip = await JSZip.loadAsync(initialBlob);
+    const embedder = new PPTXEmbedFonts();
+    await embedder.loadZip(zip);
+
+    // Fetch and Embed
+    for (const fontCfg of fontsToEmbed) {
+      try {
+        const response = await fetch(fontCfg.url);
+        if (!response.ok) throw new Error(`Failed to fetch ${fontCfg.url}`);
+        const buffer = await response.arrayBuffer();
+        
+        // Infer type
+        const ext = fontCfg.url.split('.').pop().split(/[?#]/)[0].toLowerCase();
+        let type = 'ttf';
+        if (['woff', 'otf'].includes(ext)) type = ext;
+
+        await embedder.addFont(fontCfg.name, buffer, type);
+      } catch (e) {
+        console.warn(`Failed to embed font: ${fontCfg.name} (${fontCfg.url})`, e);
+      }
+    }
+
+    await embedder.updateFiles();
+    finalBlob = await embedder.generateBlob();
+  } else {
+    // No fonts to embed
+    finalBlob = await pptx.write({ outputType: 'blob' });
+  }
+
+  // 4. Download
   const fileName = options.fileName || 'export.pptx';
-  pptx.writeFile({ fileName });
+  const url = URL.createObjectURL(finalBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -324,7 +397,6 @@ function isIconElement(node) {
 
       if (hasContent(before) || hasContent(after)) return true;
     }
-    console.log('Icon element:', node, cls);
   }
 
   return false;

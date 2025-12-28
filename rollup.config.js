@@ -2,39 +2,59 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import polyfillNode from 'rollup-plugin-polyfill-node';
+import json from '@rollup/plugin-json';
 
 const input = 'src/index.js';
 
-// Config A: produce module (mjs), cjs and a lightweight UMD that keeps `pptxgenjs` external.
-const configModules = {
+// Helper to suppress circular dependency warnings from specific libraries
+const onwarn = (warning, warn) => {
+  if (warning.code === 'CIRCULAR_DEPENDENCY') {
+    // Ignore circular dependencies in these known packages
+    if (warning.message.includes('node_modules/readable-stream') || 
+        warning.message.includes('node_modules/jszip') ||
+        warning.message.includes('node_modules/semver')) {
+      return;
+    }
+  }
+  warn(warning);
+};
+
+// --- CONFIG A: Library (NPM) ---
+// Does NOT include dependencies. Consumers (Webpack/Vite) will bundle them.
+const configLibrary = {
   input,
   output: [
     {
       file: 'dist/dom-to-pptx.mjs',
       format: 'es',
-      sourcemap: false,
+      sourcemap: true,
     },
     {
       file: 'dist/dom-to-pptx.cjs',
       format: 'cjs',
-      sourcemap: false,
+      sourcemap: true,
       exports: 'named',
     },
-    {
-      file: 'dist/dom-to-pptx.min.js',
-      format: 'umd',
-      name: 'domToPptx',
-      esModule: false,
-      globals: {
-        pptxgenjs: 'PptxGenJS',
-      },
-    },
   ],
-  plugins: [resolve(), commonjs()],
-  external: ['pptxgenjs'],
+  plugins: [
+    resolve({ preferBuiltins: true }), // Allow node resolution
+    commonjs(),
+    json(),
+  ],
+  // Mark all dependencies as external so they aren't bundled into the .mjs/.cjs files
+  external: [
+    'pptxgenjs',
+    'html2canvas',
+    'jszip',
+    'fonteditor-core',
+    'opentype.js',
+    'pako'
+  ],
+  onwarn,
 };
 
-// Config B: produce a single standalone UMD bundle that includes dependencies (for script-tag consumers).
+// --- CONFIG B: Browser Bundle (CDN) ---
+// Includes EVERYTHING (Polyfills + Dependencies). Standalone file.
 const configBundle = {
   input,
   output: {
@@ -43,20 +63,39 @@ const configBundle = {
     name: 'domToPptx',
     esModule: false,
     sourcemap: false,
-    intro: 'var global = typeof self !== "undefined" ? self : this;', 
+    // Inject global variables for browser compatibility
+    intro: `
+      var global = typeof self !== "undefined" ? self : this; 
+      var process = { env: { NODE_ENV: "production" } };
+    `,
+    globals: {
+      // If you want users to load PptxGenJS separately via script tag, keep this.
+      // If you want to bundle PptxGenJS inside, remove it from external/globals.
+      // Usually for "bundle.js", we bundle everything except maybe very large libs.
+      // Based on your previous config, we are bundling everything.
+    }
   },
   plugins: [
-    // 1. Resolve must be configured to pick browser versions of dependencies
+    // 1. JSON plugin (needed for some deps)
+    json(),
+    
+    // 2. Resolve browser versions of modules
     resolve({
-      browser: true, 
-      preferBuiltins: false 
+      browser: true,
+      preferBuiltins: false, // Force use of browser polyfills
     }),
-    // 2. CommonJS transforms CJS modules to ESM
-    commonjs(),
-    // 3. Polyfills for any remaining Node logic (like Buffer in older JSZip versions)
+
+    // 3. Convert CJS to ESM
+    commonjs({
+      transformMixedEsModules: true,
+    }),
+
+    // 4. Inject Node.js Polyfills (Buffer, Stream, etc.)
     polyfillNode(),
   ],
+  // Empty external list means "Bundle everything"
   external: [],
+  onwarn,
 };
 
-export default [configModules, configBundle];
+export default [configLibrary, configBundle];

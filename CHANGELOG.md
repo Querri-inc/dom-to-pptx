@@ -2,12 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-12-29
+
+### Added
+- **Automatic Font Discovery:** The library now automatically scans the DOM for used font families, extracts their `@font-face` URLs from the document stylesheets, and embeds them into the PPTX file.
+- **Custom Font Embedding:** Added support for manually embedding web fonts (TTF, WOFF, OTF).
+- **Font Configuration:** Added `fonts` option for manual font URLs and `autoEmbedFonts` (default: `true`) to toggle automatic detection.
+
+### Changed
+- **Build Configuration:** Updated Rollup build to include necessary Node.js polyfills (Buffer, Stream) for the browser bundle to support binary font manipulation.
+- **Text Detection:** Improved `isTextContainer` logic to better distinguish between pure text nodes and structural inline elements (like icons or styled spans).
+
 ## [1.0.9] - 2025-12-28
 
 ### Fixed
-
-- **Linear Gradients not applied properly**: Seperated the logic to handle tailwind class and normal css.
-- **Font Awesome icon library cannot be converted**: Updated logic to handle Icons inside lists and span elements. fixes [#3].
+- **Complex Gradients:** Fixed `linear-gradient` parsing to correctly support degree-based angles (e.g., `45deg`) and complex directional keywords (e.g., `to top right`), ensuring background gradients match the CSS exactly.
+- **Icon Visibility:** Fixed an issue where icons (Font Awesome, Material Icons, etc.) nested within list items or text containers were being treated as empty text and failing to render, fixes [#3].
 
 ## [1.0.8] - 2025-12-12 (Hot-Patch)
 
