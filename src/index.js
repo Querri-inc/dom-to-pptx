@@ -63,7 +63,7 @@ export async function exportToPptx(target, options = {}) {
       continue;
     }
     const slide = pptx.addSlide();
-    await processSlide(root, slide, pptx);
+    await processSlide(root, slide, pptx, options);
   }
 
   // 3. Font Embedding Logic
@@ -145,7 +145,7 @@ export async function exportToPptx(target, options = {}) {
  * @param {PptxGenJS.Slide} slide - The PPTX slide object to add content to.
  * @param {PptxGenJS} pptx - The main PPTX instance.
  */
-async function processSlide(root, slide, pptx) {
+async function processSlide(root, slide, pptx, globalOptions = {}) {
   const rootRect = root.getBoundingClientRect();
   const PPTX_WIDTH_IN = 10;
   const PPTX_HEIGHT_IN = 5.625;
@@ -196,7 +196,8 @@ async function processSlide(root, slide, pptx) {
       order,
       pptx,
       currentZ,
-      nodeStyle
+      nodeStyle,
+      globalOptions
     );
 
     if (result) {
@@ -405,7 +406,15 @@ function isIconElement(node) {
  * Replaces createRenderItem.
  * Returns { items: [], job: () => Promise, stopRecursion: boolean }
  */
-function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, computedStyle) {
+function prepareRenderItem(
+  node,
+  config,
+  domOrder,
+  pptx,
+  effectiveZIndex,
+  computedStyle,
+  globalOptions = {}
+) {
   // 1. Text Node Handling
   if (node.nodeType === 3) {
     const textContent = node.nodeValue.trim();
@@ -493,8 +502,28 @@ function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, comput
         let code = '2022'; // disc
         if (listStyleType === 'circle') code = '25CB';
         if (listStyleType === 'square') code = '25A0';
-        const colorObj = parseColor(liStyle.color);
-        bullet = { code, color: colorObj.hex || '000000' };
+
+        // --- CHANGE: Color Logic (Option > ::marker > CSS color) ---
+        let finalHex = '000000';
+
+        // A. Check Global Option override
+        if (globalOptions?.listConfig?.color) {
+          finalHex = parseColor(globalOptions.listConfig.color).hex || '000000';
+        }
+        // B. Check ::marker pseudo element (supported in modern browsers)
+        else {
+          const markerStyle = window.getComputedStyle(child, '::marker');
+          const markerColor = parseColor(markerStyle.color);
+          if (markerColor.hex) {
+            finalHex = markerColor.hex;
+          } else {
+            // C. Fallback to LI text color
+            const colorObj = parseColor(liStyle.color);
+            if (colorObj.hex) finalHex = colorObj.hex;
+          }
+        }
+
+        bullet = { code, color: finalHex };
       }
 
       // 2. Extract Text Parts
@@ -509,12 +538,29 @@ function prepareRenderItem(node, config, domOrder, pptx, effectiveZIndex, comput
         if (bullet) parts[0].options.bullet = bullet;
 
         // B. Apply Spacing
-        const mt = parseFloat(liStyle.marginTop) || 0;
-        const mb = parseFloat(liStyle.marginBottom) || 0;
-        if (mt > 0) parts[0].options.paraSpaceBefore = mt * 0.75 * config.scale;
-        if (mb > 0) parts[0].options.paraSpaceAfter = mb * 0.75 * config.scale;
+        let ptBefore = 0;
+        let ptAfter = 0;
 
-        // C. Force Line Break on LAST part (except the very last item of the list)
+        // A. Check Global Options (Expected in Points)
+        if (globalOptions.listConfig?.spacing) {
+          if (typeof globalOptions.listConfig.spacing.before === 'number') {
+            ptBefore = globalOptions.listConfig.spacing.before;
+          }
+          if (typeof globalOptions.listConfig.spacing.after === 'number') {
+            ptAfter = globalOptions.listConfig.spacing.after;
+          }
+        }
+        // B. Fallback to CSS Margins (Convert px -> pt)
+        else {
+          const mt = parseFloat(liStyle.marginTop) || 0;
+          const mb = parseFloat(liStyle.marginBottom) || 0;
+          if (mt > 0) ptBefore = mt * 0.75 * config.scale;
+          if (mb > 0) ptAfter = mb * 0.75 * config.scale;
+        }
+
+        if (ptBefore > 0) parts[0].options.paraSpaceBefore = ptBefore;
+        if (ptAfter > 0) parts[0].options.paraSpaceAfter = ptAfter;
+
         if (index < liChildren.length - 1) {
           parts[parts.length - 1].options.breakLine = true;
         }
