@@ -256,14 +256,50 @@ export function getTextStyle(style, scale) {
     const fallback = getGradientFallbackColor(style.backgroundImage);
     if (fallback) colorObj = parseColor(fallback);
   }
+  
+  let lineSpacing = null;
+  const fontSizePx = parseFloat(style.fontSize);
+  const lhStr = style.lineHeight;
+
+  if (lhStr && lhStr !== 'normal') {
+    let lhPx = parseFloat(lhStr);
+
+    // Edge Case: If browser returns a raw multiplier (e.g. "1.5")
+    // we must multiply by font size to get the height in pixels.
+    // (Note: getComputedStyle usually returns 'px', but inline styles might differ)
+    if (/^[0-9.]+$/.test(lhStr)) {
+        lhPx = lhPx * fontSizePx;
+    }
+
+    if (!isNaN(lhPx) && lhPx > 0) {
+        // Convert Pixel Height to Point Height (1px = 0.75pt)
+        // And apply the global layout scale.
+        lineSpacing = lhPx * 0.75 * scale;
+    }
+  }
+
+  // --- Spacing (Margins) ---
+  // Convert CSS margins (px) to PPTX Paragraph Spacing (pt).
+  let paraSpaceBefore = 0;
+  let paraSpaceAfter = 0;
+
+  const mt = parseFloat(style.marginTop) || 0;
+  const mb = parseFloat(style.marginBottom) || 0;
+
+  if (mt > 0) paraSpaceBefore = mt * 0.75 * scale;
+  if (mb > 0) paraSpaceAfter = mb * 0.75 * scale;
 
   return {
     color: colorObj.hex || '000000',
     fontFace: style.fontFamily.split(',')[0].replace(/['"]/g, ''),
-    fontSize: parseFloat(style.fontSize) * 0.75 * scale,
+    fontSize: Math.floor(fontSizePx * 0.75 * scale),
     bold: parseInt(style.fontWeight) >= 600,
     italic: style.fontStyle === 'italic',
     underline: style.textDecoration.includes('underline'),
+    // Only add if we have a valid value
+    ...(lineSpacing && { lineSpacing }), 
+    ...(paraSpaceBefore > 0 && { paraSpaceBefore }),
+    ...(paraSpaceAfter > 0 && { paraSpaceAfter }),
   };
 }
 
